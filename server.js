@@ -8,7 +8,18 @@ import { extract } from './lib/extractor.js';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 const app = express();
-app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      imgSrc: ["'self'", 'data:'],
+      fontSrc: ["'self'", 'https:', 'data:'],
+    }
+  },
+  crossOriginResourcePolicy: false
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(join(__dirname, 'public')));
 
