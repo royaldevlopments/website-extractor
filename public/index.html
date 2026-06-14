@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Website Extractor — Download HTML, CSS & JS</title>
+<title>Website Extractor — Wget-powered</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -23,7 +23,11 @@ header {
 }
 header h1 { font-size: 2.5rem; font-weight: 700; color: #fff; }
 header p { color: rgba(255,255,255,.85); margin-top: 12px; font-size: 1.1rem; }
-main { flex: 1; max-width: 800px; margin: 0 auto; padding: 40px 20px; width: 100%; }
+header code {
+  background: rgba(255,255,255,.15); padding: 2px 8px;
+  border-radius: 4px; font-size: .9rem; color: #fff;
+}
+main { flex: 1; max-width: 720px; margin: 0 auto; padding: 40px 20px; width: 100%; }
 .input-group {
   display: flex;
   gap: 10px;
@@ -70,6 +74,11 @@ main { flex: 1; max-width: 800px; margin: 0 auto; padding: 40px 20px; width: 100
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .status p { color: #8b949e; margin-top: 12px; }
+.status .cmd {
+  font-family: monospace; font-size: .8rem; color: #484f58;
+  margin-top: 8px; background: #0d1117; padding: 8px 12px;
+  border-radius: 6px; display: inline-block;
+}
 
 .result { display: none; margin-top: 24px; }
 .result.show { display: block; }
@@ -77,9 +86,11 @@ main { flex: 1; max-width: 800px; margin: 0 auto; padding: 40px 20px; width: 100
   background: #161b22; border: 1px solid #30363d;
   border-radius: 12px; padding: 28px;
 }
+.result-card h2 { color: #fff; margin-bottom: 6px; }
+.result-card .sub { color: #8b949e; font-size: .9rem; margin-bottom: 20px; }
 
 .summary {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
   margin-bottom: 24px;
 }
 .stat {
@@ -88,6 +99,20 @@ main { flex: 1; max-width: 800px; margin: 0 auto; padding: 40px 20px; width: 100
 }
 .stat .num { font-size: 1.5rem; font-weight: 700; color: #fff; }
 .stat .label { font-size: .85rem; color: #8b949e; margin-top: 4px; }
+
+.file-list {
+  background: #0d1117; border: 1px solid #30363d;
+  border-radius: 8px; padding: 12px 16px;
+  max-height: 200px; overflow-y: auto;
+  margin-bottom: 20px; font-size: .85rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+.file-list div { color: #8b949e; padding: 2px 0; }
+.file-list .dir { color: #58a6ff; }
+.file-list .ext-html { color: #e34f26; }
+.file-list .ext-css { color: #1572b6; }
+.file-list .ext-js { color: #f7df1e; }
+.file-list .ext-img { color: #7daea0; }
 
 .btn-group { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .btn {
@@ -101,28 +126,6 @@ main { flex: 1; max-width: 800px; margin: 0 auto; padding: 40px 20px; width: 100
 .btn:hover { opacity: .9; }
 .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
 .btn-secondary:hover { background: #30363d; }
-
-.preview { margin-top: 24px; }
-.preview h3 { color: #fff; margin-bottom: 12px; font-size: 1rem; }
-.tabs { display: flex; gap: 4px; margin-bottom: 0; }
-.tab {
-  padding: 8px 20px; background: #0d1117; border: 1px solid #30363d;
-  border-bottom: none; border-radius: 8px 8px 0 0;
-  cursor: pointer; font-size: .85rem; color: #8b949e;
-  font-family: inherit;
-}
-.tab.active { background: #161b22; color: #fff; border-color: #30363d; }
-.pane {
-  display: none; background: #0d1117; border: 1px solid #30363d;
-  border-radius: 0 8px 8px 8px; padding: 16px;
-  max-height: 400px; overflow: auto;
-}
-.pane.active { display: block; }
-.pane pre {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: .8rem; color: #8b949e; white-space: pre-wrap;
-  word-break: break-all;
-}
 
 footer { text-align: center; padding: 24px; color: #484f58; font-size: .85rem; }
 footer a { color: #58a6ff; text-decoration: none; }
@@ -150,45 +153,36 @@ footer a { color: #58a6ff; text-decoration: none; }
 <div class="toast" id="toast"></div>
 <header>
   <h1>🌐 Website Extractor</h1>
-  <p>Kisi bhi website ka HTML, CSS aur JS extract karo aur zip mein download karo</p>
+  <p>Powered by <code>wget --mirror</code> — Download complete websites including all assets</p>
 </header>
 <main>
   <div class="input-group">
     <input type="url" id="urlInput" placeholder="https://example.com" autofocus>
     <button id="extractBtn" onclick="extract()">Extract 🔍</button>
   </div>
-  <p class="hint">Enter a URL to download its HTML, CSS, and JavaScript files</p>
+  <p class="hint">Downloads HTML, CSS, JS, images, fonts — everything</p>
 
   <div class="error" id="error"></div>
 
   <div class="status" id="status">
     <div class="spinner"></div>
-    <p id="statusText">Fetching website & extracting assets...</p>
+    <p id="statusText">Running wget --mirror...</p>
+    <div class="cmd" id="statusCmd">wget --mirror --convert-links --adjust-extension --page-requisites --no-parent &lt;url&gt;</div>
   </div>
 
   <div class="result" id="result">
     <div class="result-card">
+      <h2 id="resultTitle">✅ Website Extracted!</h2>
+      <p class="sub" id="resultUrl">example.com</p>
       <div class="summary">
-        <div class="stat" id="statHtml"><div class="num">-</div><div class="label">HTML</div></div>
-        <div class="stat" id="statCss"><div class="num">-</div><div class="label">CSS Files</div></div>
-        <div class="stat" id="statJs"><div class="num">-</div><div class="label">JS Files</div></div>
+        <div class="stat" id="statFiles"><div class="num">-</div><div class="label">Files</div></div>
+        <div class="stat" id="statSize"><div class="num">-</div><div class="label">Total Size</div></div>
       </div>
+      <div class="file-list" id="fileList"></div>
       <div class="btn-group">
-        <button class="btn" id="downloadBtn"><span>⬇</span> Download ZIP</button>
+        <a class="btn" id="downloadBtn"><span>⬇</span> Download ZIP</a>
         <button class="btn btn-secondary" onclick="resetForm()">Extract Another</button>
       </div>
-    </div>
-
-    <div class="preview">
-      <h3>Extracted Files Preview</h3>
-      <div class="tabs">
-        <button class="tab active" data-pane="html">index.html</button>
-        <button class="tab" data-pane="css">CSS <span id="cssCount">(0)</span></button>
-        <button class="tab" data-pane="js">JS <span id="jsCount">(0)</span></button>
-      </div>
-      <div class="pane active" id="pane-html"><pre id="htmlPreview"></pre></div>
-      <div class="pane" id="pane-css"><pre id="cssPreview"></pre></div>
-      <div class="pane" id="pane-js"><pre id="jsPreview"></pre></div>
     </div>
   </div>
 </main>
@@ -200,30 +194,31 @@ const input = document.getElementById('urlInput');
 const btn = document.getElementById('extractBtn');
 const status = document.getElementById('status');
 const statusText = document.getElementById('statusText');
+const statusCmd = document.getElementById('statusCmd');
 const error = document.getElementById('error');
 const result = document.getElementById('result');
 const toast = document.getElementById('toast');
+const downloadBtn = document.getElementById('downloadBtn');
 
-let extractedData = null;
-
-btn.addEventListener('click', extract);
-input.addEventListener('keydown', e => { if (e.key === 'Enter') extract(); });
+let jobId = null;
+let resultUrl = '';
 
 async function extract() {
   const url = input.value.trim();
-  if (!url) { showError('Please enter a URL'); return; }
-  if (!/^https?:\/\//.test(url)) { showError('URL must start with http:// or https://'); return; }
+  if (!url) { showToast('Please enter a URL'); return; }
+  if (!/^https?:\/\//.test(url)) { showToast('URL must start with http:// or https://'); return; }
 
   btn.disabled = true;
   btn.textContent = 'Extracting... ⏳';
   status.classList.add('show');
-  statusText.textContent = 'Fetching website & extracting assets...';
+  statusText.textContent = 'Running wget --mirror...';
+  statusCmd.textContent = 'wget --mirror --convert-links --adjust-extension --page-requisites --no-parent ' + url;
   error.classList.remove('show');
   result.classList.remove('show');
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 130000);
 
     const res = await fetch('/api/extract', {
       method: 'POST',
@@ -236,73 +231,43 @@ async function extract() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    extractedData = data;
+    jobId = data.jobId;
+    resultUrl = url;
 
-    const htmlSize = (data.files.html.length / 1024).toFixed(1);
-    const cssCount = data.files.css.length;
-    const jsCount = data.files.js.length;
+    document.getElementById('resultTitle').textContent = '✅ ' + data.title;
+    document.getElementById('resultUrl').textContent = url;
+    document.getElementById('statFiles').querySelector('.num').textContent = data.totalFiles;
+    const sizeKB = (data.totalSize / 1024).toFixed(1);
+    document.getElementById('statSize').querySelector('.num').textContent = sizeKB + 'KB';
 
-    document.getElementById('statHtml').querySelector('.num').textContent = htmlSize + 'KB';
-    document.getElementById('statCss').querySelector('.num').textContent = cssCount;
-    document.getElementById('statJs').querySelector('.num').textContent = jsCount;
-    document.getElementById('cssCount').textContent = `(${cssCount})`;
-    document.getElementById('jsCount').textContent = `(${jsCount})`;
+    const fileList = document.getElementById('fileList');
+    fileList.innerHTML = '';
+    for (const f of data.files) {
+      const div = document.createElement('div');
+      const ext = f.split('.').pop()?.toLowerCase();
+      div.textContent = '📄 ' + f;
+      if (f.endsWith('/')) div.className = 'dir';
+      else if (ext === 'html' || ext === 'htm') div.className = 'ext-html';
+      else if (ext === 'css') div.className = 'ext-css';
+      else if (ext === 'js') div.className = 'ext-js';
+      else if (['png','jpg','jpeg','gif','svg','webp','ico'].includes(ext)) div.className = 'ext-img';
+      fileList.appendChild(div);
+    }
 
-    document.getElementById('htmlPreview').textContent = data.files.html.slice(0, 3000) + (data.files.html.length > 3000 ? '\n\n... (truncated)' : '');
-    document.getElementById('cssPreview').textContent = cssCount > 0
-      ? data.files.css.map(f => `/* ${f.name} */\n${f.content.slice(0, 1500)}`).join('\n\n') + '\n\n... (truncated)'
-      : 'No CSS files found';
-    document.getElementById('jsPreview').textContent = jsCount > 0
-      ? data.files.js.map(f => `// ${f.name}\n${f.content.slice(0, 1500)}`).join('\n\n') + '\n\n... (truncated)'
-      : 'No JS files found';
+    downloadBtn.href = '/api/download/' + jobId + '?url=' + encodeURIComponent(url);
 
     status.classList.remove('show');
     result.classList.add('show');
   } catch (e) {
     status.classList.remove('show');
-    showError(e.name === 'AbortError' ? 'Request timed out. The website might be too slow.' : e.message);
+    showToast(e.name === 'AbortError' ? 'Request timed out (2 min). The website might be too large.' : e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Extract 🔍';
   }
 }
 
-document.getElementById('downloadBtn').addEventListener('click', async () => {
-  if (!extractedData) return;
-  try {
-    const res = await fetch('/api/download', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        html: extractedData.files.html,
-        css: extractedData.files.css,
-        js: extractedData.files.js,
-        title: extractedData.title,
-        url: extractedData.url
-      })
-    });
-    if (!res.ok) throw new Error('Download failed');
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = extractedData.title.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 30) + '.zip';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  } catch (e) {
-    showError(e.message);
-  }
-});
-
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('pane-' + tab.dataset.pane).classList.add('active');
-  });
-});
-
-function showError(msg) {
+function showToast(msg) {
   error.textContent = msg;
   error.classList.add('show');
   toast.textContent = '❌ ' + msg;
@@ -313,7 +278,7 @@ function showError(msg) {
 function resetForm() {
   result.classList.remove('show');
   error.classList.remove('show');
-  extractedData = null;
+  jobId = null;
   input.value = '';
   input.focus();
 }
