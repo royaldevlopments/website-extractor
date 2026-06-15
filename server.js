@@ -9,6 +9,11 @@ import { startExtraction, getJobStatus, getJobDir, cleanup } from './lib/extract
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
+const BRAND = `<div style="margin-top:16px;padding-top:14px;border-top:1px solid #30363d;text-align:center">
+  <div style="font-size:1rem;font-weight:700;background:linear-gradient(90deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent">✦ Royal Devlopments ✦</div>
+  <div style="color:#484f58;font-size:.7rem;margin-top:2px">Website Extractor — wget --mirror</div>
+</div>`;
+
 const app = express();
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.use((req, res, next) => {
@@ -75,7 +80,7 @@ footer a{color:#58a6ff;text-decoration:none}
 </div>
 </div>
 </main>
-<footer>Built by <a href="https://github.com/royaldevlopments">Royal Devlopments</a></footer>
+${BRAND}
 <script>
 const jobId = '${jobId}';
 const logContainer = document.getElementById('logContainer');
@@ -155,7 +160,28 @@ setTimeout(check, 1000);
 </body>
 </html>`);
   } catch (e) {
-    res.status(400).send(`Error: ${e.message}`);
+    res.status(400).send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Extraction Error</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0d1117;color:#c9d1d9;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:40px;text-align:center;max-width:500px}
+h2{color:#f85149;margin-bottom:12px}
+p{color:#8b949e;margin-bottom:24px}
+.btn{display:inline-flex;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600}
+</style></head>
+<body>
+<div class="card">
+<h2>❌ Extraction Failed</h2>
+<p>${e.message}</p>
+<a class="btn" href="/">Try Again</a>
+</div>
+<div style="margin-top:20px;text-align:center;font-size:.8rem">
+  <span style="font-weight:700;background:linear-gradient(90deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent">✦ Royal Devlopments ✦</span>
+  <span style="color:#484f58"> — Website Extractor</span>
+</div>
+</body>
+</html>`);
   }
 });
 
@@ -237,8 +263,8 @@ footer a{color:#58a6ff;text-decoration:none}
 <a class="btn" href="/api/download/${status.jobId}?url=${encodeURIComponent(url)}">⬇ Download ZIP</a>
 <a class="btn btn-sec" href="/">Extract Another</a>
 </div>
-</main>
-<footer>Built by <a href="https://github.com/royaldevlopments">Royal Devlopments</a></footer>
+ </main>
+${BRAND}
 </body>
 </html>`);
 });
