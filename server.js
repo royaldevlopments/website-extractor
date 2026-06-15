@@ -44,14 +44,19 @@ header{background:linear-gradient(135deg,#667eea,#764ba2);padding:40px 20px;text
 header h1{color:#fff;font-size:1.8rem}
 header p{color:rgba(255,255,255,.8);margin-top:8px}
 main{flex:1;max-width:720px;margin:0 auto;padding:40px 20px;width:100%;text-align:center}
-.loading{margin-top:40px}
-.spinner{display:inline-block;width:48px;height:48px;border:4px solid #30363d;border-top-color:#764ba2;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-#statusText{color:#8b949e;margin-top:16px;font-size:1.1rem}
-#dots{color:#484f58}
-.cmd{font-family:monospace;font-size:.8rem;color:#484f58;margin-top:12px;background:#0d1117;padding:10px 14px;border-radius:6px;display:inline-block;word-break:break-all}
+.progress-wrap{margin-top:24px;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;text-align:left}
+.progress-bar-wrap{background:#0d1117;border-radius:8px;height:24px;overflow:hidden;border:1px solid #30363d}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:8px;transition:width .5s}
+.progress-text{color:#8b949e;font-size:.85rem;margin-top:8px;text-align:center}
+.log-wrap{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 16px;margin-top:16px;max-height:300px;overflow-y:auto;font-family:monospace;font-size:.75rem;line-height:1.5;text-align:left}
+.log-wrap div{color:#8b949e;white-space:pre-wrap;word-break:break-all}
+.log-wrap .downloading{color:#58a6ff}
+.log-wrap .saving{color:#7ee787}
+.log-wrap .error{color:#f85149}
+.log-wrap .complete{color:#3fb950}
 footer{text-align:center;padding:24px;color:#484f58;font-size:.85rem}
 footer a{color:#58a6ff;text-decoration:none}
+@media(max-width:520px){header h1{font-size:1.4rem}}
 </style>
 </head>
 <body>
@@ -60,38 +65,92 @@ footer a{color:#58a6ff;text-decoration:none}
 <p>${url}</p>
 </header>
 <main>
-<div class="loading">
-<div class="spinner"></div>
-<p id="statusText">Running wget<span id="dots">...</span></p>
-<div class="cmd">wget --mirror --convert-links --adjust-extension --page-requisites --no-parent ${url}</div>
+<div class="progress-wrap">
+<div class="progress-bar-wrap">
+<div class="progress-bar" id="progressBar"></div>
+</div>
+<p class="progress-text" id="progressText">Starting...</p>
+<div class="log-wrap" id="logContainer">
+<div style="color:#484f58">Waiting for output...</div>
+</div>
 </div>
 </main>
 <footer>Built by <a href="https://github.com/royaldevlopments">Royal Devlopments</a></footer>
 <script>
 const jobId = '${jobId}';
-const dots = document.getElementById('dots');
-let dotCount = 0;
-setInterval(() => {
-  dotCount = (dotCount + 1) % 4;
-  dots.textContent = '.'.repeat(dotCount || 3);
-}, 400);
+const logContainer = document.getElementById('logContainer');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+let lastLogLen = 0;
+let errorShown = false;
+
+function updateLog(lines) {
+  logContainer.innerHTML = '';
+  if (lines.length === 0) {
+    logContainer.innerHTML = '<div style="color:#484f58">Processing...</div>';
+    return;
+  }
+  for (const line of lines) {
+    const div = document.createElement('div');
+    let text = line;
+    if (text.includes('%') && text.includes('[') && text.includes(']')) {
+      div.className = 'downloading';
+      const pct = text.match(/(\\d+)%/);
+      if (pct) progressBar.style.width = pct[1] + '%';
+      var fn = text.match(/'([^']+)'/);
+      if (fn) progressText.textContent = '⬇ ' + fn[1].split('/').pop();
+    } else if (text.includes('saved')) {
+      div.className = 'saving';
+      progressText.textContent = '✅ Saved';
+    } else if (text.toLowerCase().includes('error') || text.toLowerCase().includes('failed')) {
+      div.className = 'error';
+    } else if (text.includes('--') && text.includes('--')) {
+      div.className = 'downloading';
+      var match = text.match(/https?:\\/\\/[^\\s]+/);
+      if (match) progressText.textContent = '⬇ ' + match[0].split('/').pop();
+    }
+    div.textContent = text;
+    logContainer.appendChild(div);
+  }
+  logContainer.scrollTop = logContainer.scrollHeight;
+}
 
 async function check() {
   try {
     const r = await fetch('/api/status/' + jobId);
     const s = await r.json();
+    
+    if (s.log && s.log.length > 0) {
+      updateLog(s.log);
+      if (!errorShown) {
+        var last = s.log[s.log.length - 1];
+        if (last.includes('%') && last.includes('[')) {
+          var p = last.match(/(\\d+)%/);
+          if (p) { progressBar.style.width = p[1] + '%'; progressText.textContent = p[1] + '%'; }
+        }
+      }
+    }
+
     if (s.status === 'complete') {
-      window.location.href = '/api/result/' + jobId + '?url=' + encodeURIComponent('${url}');
+      progressBar.style.width = '100%';
+      progressText.textContent = '✅ Complete! Redirecting...';
+      setTimeout(() => { window.location.href = '/api/result/' + jobId + '?url=' + encodeURIComponent('${url}'); }, 1000);
     } else if (s.status === 'error') {
-      document.getElementById('statusText').innerHTML = '❌ Error: ' + s.error + '<br><a href="/" style="color:#58a6ff;margin-top:12px;display:inline-block">Try Again</a>';
-    } else {
+      if (!errorShown) {
+        errorShown = true;
+        progressBar.style.background = '#f85149';
+        progressText.textContent = '❌ Error: ' + s.error;
+        logContainer.innerHTML += '<div class="error" style="margin-top:8px;font-weight:600;color:#f85149">❌ ' + s.error + '</div><div style="margin-top:12px"><a href="/" style="color:#58a6ff">Try Again</a></div>';
+      }
       setTimeout(check, 2000);
+    } else {
+      setTimeout(check, 1000);
     }
   } catch(e) {
-    setTimeout(check, 2000);
+    setTimeout(check, 1000);
   }
 }
-setTimeout(check, 2000);
+setTimeout(check, 1000);
 </script>
 </body>
 </html>`);
