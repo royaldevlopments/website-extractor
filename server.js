@@ -159,6 +159,20 @@ setTimeout(check, 1000);
   }
 });
 
+// GET /api/start - start extraction async, return jobId
+app.get('/api/start', async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url || !/^https?:\/\/.+/.test(url)) {
+      return res.status(400).json({ error: 'Valid URL required' });
+    }
+    const jobId = await startExtraction(url);
+    res.json({ jobId, url, status: 'running' });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // GET /api/status/:jobId - check extraction status
 app.get('/api/status/:jobId', (req, res) => {
   const status = getJobStatus(req.params.jobId);

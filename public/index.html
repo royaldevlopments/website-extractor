@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Website Extractor — Wget-powered</title>
+<title>Website Extractor — Multi-Tab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -18,16 +18,65 @@ body {
 }
 header {
   background: linear-gradient(135deg, #667eea, #764ba2);
-  padding: 60px 20px 40px;
+  padding: 40px 20px 0;
   text-align: center;
 }
-header h1 { font-size: 2.5rem; font-weight: 700; color: #fff; }
-header p { color: rgba(255,255,255,.85); margin-top: 12px; font-size: 1.1rem; }
-header code {
-  background: rgba(255,255,255,.15); padding: 2px 8px;
-  border-radius: 4px; font-size: .9rem; color: #fff;
+header h1 { font-size: 2rem; font-weight: 700; color: #fff; }
+header p { color: rgba(255,255,255,.8); margin-top: 6px; font-size: .95rem; padding-bottom: 20px; }
+
+.tab-bar {
+  display: flex;
+  gap: 0;
+  background: #0d1117;
+  padding: 0 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid #30363d;
 }
-main { flex: 1; max-width: 720px; margin: 0 auto; padding: 40px 20px; width: 100%; }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  color: #8b949e;
+  font-size: .85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  margin-right: 2px;
+  margin-top: 4px;
+  user-select: none;
+}
+.tab:hover { color: #c9d1d9; }
+.tab.active {
+  background: #0d1117;
+  color: #fff;
+  border-color: #764ba2;
+}
+.tab .status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.tab .status-dot.idle { background: #484f58; }
+.tab .status-dot.running { background: #d29922; animation: pulse 1s infinite; }
+.tab .status-dot.done { background: #3fb950; }
+.tab .status-dot.error { background: #f85149; }
+@keyframes pulse { 50% { opacity: .4; } }
+.tab .close-btn {
+  font-size: 1rem; color: #484f58; cursor: pointer; line-height: 1; margin-left: 4px;
+}
+.tab .close-btn:hover { color: #f85149; }
+
+main { flex: 1; max-width: 820px; margin: 0 auto; padding: 20px; width: 100%; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
 .input-group {
   display: flex;
   gap: 10px;
@@ -62,84 +111,318 @@ main { flex: 1; max-width: 720px; margin: 0 auto; padding: 40px 20px; width: 100
   transition: opacity .2s;
 }
 .input-group button:hover { opacity: .9; }
-.hint { margin-top: 10px; font-size: .85rem; color: #484f58; text-align: center; }
+.input-group button:disabled { opacity: .4; cursor: not-allowed; }
+.hint { margin-top: 8px; font-size: .8rem; color: #484f58; }
 
-.error-msg {
-  background: #3d1418;
-  border: 1px solid #f85149;
-  color: #f85149;
-  padding: 14px 18px;
-  border-radius: 8px;
-  margin-top: 20px;
-  text-align: center;
-  font-weight: 500;
+.progress-wrap { margin-top: 16px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+.progress-bar-wrap { background: #0d1117; border-radius: 8px; height: 20px; overflow: hidden; border: 1px solid #30363d; }
+.progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 8px; transition: width .3s; }
+.progress-text { color: #8b949e; font-size: .85rem; margin-top: 6px; }
+.log-wrap {
+  background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px;
+  margin-top: 12px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: .75rem; line-height: 1.5;
 }
+.log-wrap div { color: #8b949e; white-space: pre-wrap; word-break: break-all; }
+.log-wrap .dl { color: #58a6ff; }
+.log-wrap .sv { color: #7ee787; }
+.log-wrap .er { color: #f85149; }
 
-.loading { display: none; margin-top: 24px; text-align: center; }
-.loading.show { display: block; }
-.spinner {
-  display: inline-block; width: 32px; height: 32px;
-  border: 3px solid #30363d; border-top-color: #764ba2;
-  border-radius: 50%; animation: spin .8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading p { color: #8b949e; margin-top: 12px; }
-.loading .cmd {
-  font-family: monospace; font-size: .8rem; color: #484f58;
-  margin-top: 8px; background: #0d1117; padding: 8px 12px;
-  border-radius: 6px; display: inline-block; word-break: break-all;
-}
+.empty-state { color: #484f58; text-align: center; padding: 40px 20px; font-size: .9rem; }
 
-footer { text-align: center; padding: 24px; color: #484f58; font-size: .85rem; }
+.result-wrap { margin-top: 16px; }
+.result-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; }
+.result-card h2 { color: #fff; font-size: 1.2rem; margin-bottom: 4px; }
+.result-card .sub { color: #8b949e; font-size: .85rem; margin-bottom: 16px; }
+.summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.stat { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; text-align: center; }
+.stat .num { font-size: 1.3rem; font-weight: 700; color: #fff; }
+.stat .label { font-size: .8rem; color: #8b949e; margin-top: 2px; }
+.file-list {
+  background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px;
+  max-height: 150px; overflow-y: auto; margin-bottom: 16px; font-size: .8rem; font-family: monospace;
+}
+.file-list div { color: #8b949e; padding: 1px 0; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; text-decoration: none;
+  padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: .9rem; border: none; cursor: pointer;
+}
+.btn:hover { opacity: .9; }
+.btn-sec { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+
+footer { text-align: center; padding: 20px; color: #484f58; font-size: .8rem; }
 footer a { color: #58a6ff; text-decoration: none; }
 
-@media (max-width: 520px) {
-  header h1 { font-size: 1.8rem; }
+@media (max-width: 600px) {
+  header h1 { font-size: 1.5rem; }
   .input-group { flex-direction: column; }
   .input-group button { width: 100%; }
+  .summary { grid-template-columns: 1fr; }
+  .tab { font-size: .75rem; padding: 8px 12px; }
 }
 </style>
 </head>
 <body>
 <header>
   <h1>🌐 Website Extractor</h1>
-  <p>Powered by <code>wget --mirror</code> — Download complete websites including all assets</p>
+  <p>Powered by <code>wget --mirror</code> — Extract multiple sites at once</p>
 </header>
-<main>
-  <form action="/extract" method="GET" id="mainForm">
-    <div class="input-group">
-      <input type="url" name="url" id="urlInput" placeholder="https://example.com" autofocus required>
-      <button type="submit">Extract 🔍</button>
-    </div>
-    <p class="hint">Downloads HTML, CSS, JS, images, fonts — everything</p>
-  </form>
 
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-    <p id="statusText">Running wget --mirror...</p>
-    <div class="cmd" id="statusCmd">wget --mirror --convert-links --adjust-extension --page-requisites --no-parent &lt;url&gt;</div>
+<div class="tab-bar" id="tabBar"></div>
+
+<main id="mainContent">
+  <div class="empty-state" id="emptyState">
+    Click <strong>+ New Tab</strong> to start extracting a website
   </div>
 </main>
+
 <footer>
   Built by <a href="https://github.com/royaldevlopments">Royal Devlopments</a>
 </footer>
-<script>
-const form = document.getElementById('mainForm');
-const loading = document.getElementById('loading');
-const statusText = document.getElementById('statusText');
-const statusCmd = document.getElementById('statusCmd');
-const urlInput = document.getElementById('urlInput');
 
-form.addEventListener('submit', function(e) {
-  const url = urlInput.value.trim();
+<script>
+const JOBS = {};
+let tabCounter = 0;
+let activeTab = null;
+
+const tabBar = document.getElementById('tabBar');
+const mainContent = document.getElementById('mainContent');
+const emptyState = document.getElementById('emptyState');
+
+function createTab() {
+  tabCounter++;
+  const id = 'tab-' + tabCounter;
+  const jobId = null;
+  
+  const tab = document.createElement('div');
+  tab.className = 'tab';
+  tab.dataset.id = id;
+  tab.innerHTML = '<span class="status-dot idle"></span>Tab ' + tabCounter + '<span class="close-btn" data-close="' + id + '">✕</span>';
+  tab.querySelector('.close-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    closeTab(id);
+  });
+  tab.addEventListener('click', function() { switchTab(id); });
+  tabBar.insertBefore(tab, tabBar.lastElementChild);
+
+  const panel = document.createElement('div');
+  panel.className = 'tab-panel';
+  panel.id = 'panel-' + id;
+  panel.innerHTML = getPanelHTML(id);
+  mainContent.appendChild(panel);
+
+  JOBS[id] = { jobId: null, timer: null, done: false };
+
+  // Wire up the extract button
+  panel.querySelector('.extract-btn').addEventListener('click', function() { startExtract(id); });
+  // Enter key in input
+  panel.querySelector('.url-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') startExtract(id);
+  });
+
+  switchTab(id);
+}
+
+function getPanelHTML(id) {
+  return `
+    <div class="input-group">
+      <input type="url" class="url-input" placeholder="https://example.com">
+      <button class="extract-btn">Extract 🔍</button>
+    </div>
+    <p class="hint">Downloads HTML, CSS, JS, images, fonts — everything</p>
+    <div class="progress-wrap" style="display:none" id="prog-${id}">
+      <div class="progress-bar-wrap"><div class="progress-bar" id="bar-${id}"></div></div>
+      <p class="progress-text" id="ptxt-${id}">Starting...</p>
+      <div class="log-wrap" id="log-${id}"><div style="color:#484f58">Waiting for output...</div></div>
+    </div>
+    <div class="result-wrap" id="result-${id}" style="display:none"></div>
+  `;
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const tab = document.querySelector('.tab[data-id="' + id + '"]');
+  const panel = document.getElementById('panel-' + id);
+  if (tab) tab.classList.add('active');
+  if (panel) panel.classList.add('active');
+  activeTab = id;
+  emptyState.style.display = 'none';
+}
+
+function closeTab(id) {
+  const job = JOBS[id];
+  if (job && job.timer) clearInterval(job.timer);
+  const tab = document.querySelector('.tab[data-id="' + id + '"]');
+  const panel = document.getElementById('panel-' + id);
+  if (tab) tab.remove();
+  if (panel) panel.remove();
+  delete JOBS[id];
+
+  const remaining = document.querySelectorAll('.tab');
+  if (remaining.length > 0) {
+    switchTab(remaining[remaining.length - 1].dataset.id);
+  } else {
+    emptyState.style.display = 'block';
+    activeTab = null;
+  }
+}
+
+function setTabDot(id, cls) {
+  const tab = document.querySelector('.tab[data-id="' + id + '"]');
+  if (tab) tab.querySelector('.status-dot').className = 'status-dot ' + cls;
+}
+
+function updateLog(id, lines) {
+  const log = document.getElementById('log-' + id);
+  const bar = document.getElementById('bar-' + id);
+  const ptxt = document.getElementById('ptxt-' + id);
+  if (!log) return;
+  log.innerHTML = '';
+  if (!lines || lines.length === 0) {
+    log.innerHTML = '<div style="color:#484f58">Processing...</div>';
+    return;
+  }
+  for (const line of lines) {
+    const div = document.createElement('div');
+    if (line.includes('%') && line.includes('[') && line.includes(']')) {
+      div.className = 'dl';
+      const m = line.match(/(\\d+)%/);
+      if (m) { bar.style.width = m[1] + '%'; ptxt.textContent = m[1] + '%'; }
+      const fn = line.match(/'([^']+)'/);
+      if (fn) ptxt.textContent = '⬇ ' + fn[1].split('/').pop();
+    } else if (line.includes('saved')) {
+      div.className = 'sv';
+    } else if (line.toLowerCase().includes('error') || line.toLowerCase().includes('failed')) {
+      div.className = 'er';
+    }
+    div.textContent = line;
+    log.appendChild(div);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+function showResult(id, data, url) {
+  const wrap = document.getElementById('result-' + id);
+  const prog = document.getElementById('prog-' + id);
+  if (!wrap) return;
+  prog.style.display = 'none';
+  const sizeKB = (data.totalSize / 1024).toFixed(1);
+  const files = data.files.map(f => '<div>📄 ' + f + '</div>').join('');
+  wrap.style.display = 'block';
+  wrap.innerHTML = `
+    <div class="result-card">
+      <h2>✅ ${data.title}</h2>
+      <p class="sub">${url}</p>
+      <div class="summary">
+        <div class="stat"><div class="num">${data.totalFiles}</div><div class="label">Files</div></div>
+        <div class="stat"><div class="num">${sizeKB}KB</div><div class="label">Total Size</div></div>
+      </div>
+      <div class="file-list">${files}</div>
+      <div class="btn-group">
+        <a class="btn" href="/api/download/${data.jobId}?url=${encodeURIComponent(url)}">⬇ Download ZIP</a>
+        <button class="btn btn-sec" onclick="document.getElementById('panel-${id}').querySelector('.url-input').value='';document.getElementById('result-${id}').style.display='none';">New Extract</button>
+      </div>
+    </div>
+  `;
+}
+
+function showError(id, msg) {
+  const prog = document.getElementById('prog-' + id);
+  const bar = document.getElementById('bar-' + id);
+  if (bar) bar.style.background = '#f85149';
+  const ptxt = document.getElementById('ptxt-' + id);
+  if (ptxt) ptxt.innerHTML = '❌ ' + msg;
+  setTabDot(id, 'error');
+}
+
+function startExtract(id) {
+  const panel = document.getElementById('panel-' + id);
+  const input = panel.querySelector('.url-input');
+  const btn = panel.querySelector('.extract-btn');
+  const prog = document.getElementById('prog-' + id);
+  const wrap = document.getElementById('result-' + id);
+  const job = JOBS[id];
+
+  if (!job) return;
+  if (job.timer) { clearInterval(job.timer); job.timer = null; }
+
+  const url = input.value.trim();
   if (!url || !/^https?:\/\//.test(url)) {
-    e.preventDefault();
     alert('Please enter a URL starting with http:// or https://');
     return;
   }
-  loading.classList.add('show');
-  statusCmd.textContent = 'wget --mirror --convert-links --adjust-extension --page-requisites --no-parent ' + url;
-});
+
+  wrap.style.display = 'none';
+  prog.style.display = 'block';
+  document.getElementById('bar-' + id).style.width = '0%';
+  document.getElementById('bar-' + id).style.background = 'linear-gradient(90deg, #667eea, #764ba2)';
+  document.getElementById('ptxt-' + id).textContent = 'Starting...';
+  document.getElementById('log-' + id).innerHTML = '<div style="color:#484f58">Starting wget...</div>';
+  btn.disabled = true;
+  setTabDot(id, 'running');
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/api/start?url=' + encodeURIComponent(url), true);
+  xhr.responseType = 'json';
+  xhr.onload = function() {
+    if (xhr.status !== 200) {
+      var err = xhr.response && xhr.response.error ? xhr.response.error : 'Failed to start';
+      showError(id, err);
+      btn.disabled = false;
+      setTabDot(id, 'error');
+      return;
+    }
+    var d = xhr.response;
+    job.jobId = d.jobId;
+    job.timer = setInterval(function() { pollStatus(id); }, 1000);
+  };
+  xhr.onerror = function() {
+    showError(id, 'Network error - could not reach server');
+    btn.disabled = false;
+    setTabDot(id, 'error');
+  };
+  xhr.send();
+}
+
+function pollStatus(id) {
+  const job = JOBS[id];
+  if (!job || !job.jobId) return;
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', '/api/status/' + job.jobId, true);
+  xhr.responseType = 'json';
+  xhr.onload = function() {
+    if (xhr.status !== 200) return;
+    const s = xhr.response;
+    if (s.log) updateLog(id, s.log);
+    if (s.status === 'complete') {
+      if (job.timer) { clearInterval(job.timer); job.timer = null; }
+      setTabDot(id, 'done');
+      showResult(id, s, s.url);
+      document.getElementById('prog-' + id).style.display = 'none';
+      document.getElementById('panel-' + id).querySelector('.extract-btn').disabled = false;
+    } else if (s.status === 'error') {
+      if (job.timer) { clearInterval(job.timer); job.timer = null; }
+      showError(id, s.error);
+      document.getElementById('panel-' + id).querySelector('.extract-btn').disabled = false;
+    }
+  };
+  xhr.onerror = function() {};
+  xhr.send();
+}
+
+// Add "New Tab" button to the tab bar
+const newTabBtn = document.createElement('div');
+newTabBtn.className = 'tab';
+newTabBtn.style.cssText = 'color:#58a6ff;font-weight:600;cursor:pointer;border:1px dashed #30363d;background:transparent';
+newTabBtn.innerHTML = '+ New Tab';
+newTabBtn.addEventListener('click', createTab);
+tabBar.appendChild(newTabBtn);
+
+// Create first tab automatically
+createTab();
 </script>
 </body>
 </html>
