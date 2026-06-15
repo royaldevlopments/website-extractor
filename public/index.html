@@ -158,7 +158,7 @@ footer a { color: #58a6ff; text-decoration: none; }
 <main>
   <div class="input-group">
     <input type="url" id="urlInput" placeholder="https://example.com" autofocus>
-    <button id="extractBtn" onclick="extract()">Extract 🔍</button>
+    <button id="extractBtn">Extract 🔍</button>
   </div>
   <p class="hint">Downloads HTML, CSS, JS, images, fonts — everything</p>
 
@@ -181,7 +181,7 @@ footer a { color: #58a6ff; text-decoration: none; }
       <div class="file-list" id="fileList"></div>
       <div class="btn-group">
         <a class="btn" id="downloadBtn"><span>⬇</span> Download ZIP</a>
-        <button class="btn btn-secondary" onclick="resetForm()">Extract Another</button>
+        <button class="btn btn-secondary" id="resetBtn">Extract Another</button>
       </div>
     </div>
   </div>
@@ -208,8 +208,14 @@ if (!allFound) {
   document.body.innerHTML += '<div style="color:red;text-align:center;padding:20px">⚠️ Error loading page. Please hard refresh (Ctrl+F5).</div>';
 }
 
+const resetBtn = document.getElementById('resetBtn');
+console.log('resetBtn found:', resetBtn !== null);
+if (resetBtn) resetBtn.addEventListener('click', resetForm);
+
 let jobId = null;
 let resultUrl = '';
+
+btn.addEventListener('click', extract);
 
 function extract() {
   console.log('extract() called');
