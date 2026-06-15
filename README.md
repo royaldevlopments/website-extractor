@@ -250,5 +250,7 @@ SOFTWARE.
 <div align="center">
   <strong>✦ Royal Devlopments ✦</strong>
   <br>
+  <sub>Built by <strong>Shaurya</strong> — Founder @ Royal Devlopments</sub>
+  <br>
   <sub>We build websites, apps, APIs & tools. Shipping quality since day one.</sub>
 </div>
