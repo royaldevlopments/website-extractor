@@ -200,14 +200,6 @@ const error = document.getElementById('error');
 const result = document.getElementById('result');
 const toast = document.getElementById('toast');
 const downloadBtn = document.getElementById('downloadBtn');
-
-// Verify all elements found
-const allFound = [input, btn, status, statusText, error, result, toast, downloadBtn].every(e => e !== null);
-console.log('All DOM elements found:', allFound);
-if (!allFound) {
-  document.body.innerHTML += '<div style="color:red;text-align:center;padding:20px">⚠️ Error loading page. Please hard refresh (Ctrl+F5).</div>';
-}
-
 const resetBtn = document.getElementById('resetBtn');
 console.log('resetBtn found:', resetBtn !== null);
 if (resetBtn) resetBtn.addEventListener('click', resetForm);
@@ -231,14 +223,33 @@ function extract() {
   error.classList.remove('show');
   result.classList.remove('show');
 
-  fetch('/api/extract', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.error) throw new Error(data.error);
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/extract', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.responseType = 'json';
+  xhr.timeout = 130000;
+  xhr.ontimeout = function() {
+    status.classList.remove('show');
+    alert('Request timed out. The website might be too large.');
+    btn.disabled = false;
+    btn.textContent = 'Extract 🔍';
+  };
+  xhr.onload = function() {
+    if (xhr.status !== 200) {
+      status.classList.remove('show');
+      alert('Error: ' + (xhr.response && xhr.response.error ? xhr.response.error : 'Server error ' + xhr.status));
+      btn.disabled = false;
+      btn.textContent = 'Extract 🔍';
+      return;
+    }
+    const data = xhr.response;
+    if (data.error) {
+      status.classList.remove('show');
+      alert('Error: ' + data.error);
+      btn.disabled = false;
+      btn.textContent = 'Extract 🔍';
+      return;
+    }
     jobId = data.jobId;
     resultUrl = url;
 
@@ -250,9 +261,9 @@ function extract() {
 
     const fileList = document.getElementById('fileList');
     fileList.innerHTML = '';
-    for (const f of data.files) {
-      const div = document.createElement('div');
-      const ext = f.split('.').pop()?.toLowerCase();
+    for (var i = 0; i < data.files.length; i++) {
+      var f = data.files[i];
+      var div = document.createElement('div');
       div.textContent = '📄 ' + f;
       fileList.appendChild(div);
     }
@@ -261,15 +272,16 @@ function extract() {
 
     status.classList.remove('show');
     result.classList.add('show');
-  })
-  .catch(e => {
-    status.classList.remove('show');
-    alert('Error: ' + e.message);
-  })
-  .finally(() => {
     btn.disabled = false;
     btn.textContent = 'Extract 🔍';
-  });
+  };
+  xhr.onerror = function() {
+    status.classList.remove('show');
+    alert('Network error - could not reach the server. Make sure port 3005 is accessible.');
+    btn.disabled = false;
+    btn.textContent = 'Extract 🔍';
+  };
+  xhr.send(JSON.stringify({ url: url }));
 }
 
 function resetForm() {
