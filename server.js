@@ -22,6 +22,10 @@ app.use(helmet({
   },
   crossOriginResourcePolicy: false
 }));
+app.use((req, res, next) => {
+  console.log(new Date().toISOString(), req.method, req.url);
+  next();
+});
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(join(__dirname, 'public')));
 
