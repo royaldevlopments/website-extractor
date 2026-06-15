@@ -61,6 +61,106 @@ PORT=3005 npm start
 PORT=3005 HOST=0.0.0.0 nohup node server.js > server.log 2>&1 &
 ```
 
+## 📦 Full Setup Guide
+
+### 📱 Termux (Android)
+
+```bash
+# 1. Update packages
+pkg update && pkg upgrade -y
+
+# 2. Install Node.js & wget
+pkg install nodejs wget git -y
+
+# 3. Clone the repo
+git clone https://github.com/royaldevlopments/website-extractor.git
+cd website-extractor
+
+# 4. Install dependencies
+npm install
+
+# 5. Start server (runs on port 3000 by default)
+npm start
+```
+
+Open `http://localhost:3000` in your mobile browser.
+
+> **Run in background (Termux):**
+> Append `&` or use `tmux`:
+> ```bash
+> pkg install tmux -y
+> tmux new -s extract
+> npm start
+> # Ctrl+B then D to detach
+> # tmux attach -t extract to come back
+> ```
+
+> **Run on a different port:**
+> ```bash
+> PORT=3005 npm start
+> ```
+
+---
+
+### 🪟 Windows PowerShell
+
+#### Step 1 — Install Node.js
+```powershell
+# Download & install Node.js LTS (includes npm)
+# Go to https://nodejs.org and download the LTS installer
+# Run the installer — make sure "Add to PATH" is checked
+```
+
+Verify installation:
+```powershell
+node --version
+npm --version
+```
+
+#### Step 2 — Install wget
+**Option A — via winget (recommended):**
+```powershell
+winget install --id GNU.Wget2
+```
+
+**Option B — manual download:**
+1. Download wget from: https://eternallybored.org/misc/wget/
+2. Extract `wget.exe` to `C:\Windows\System32\`
+
+Verify:
+```powershell
+wget --version
+```
+
+#### Step 3 — Clone & Setup
+```powershell
+# Clone the repo
+git clone https://github.com/royaldevlopments/website-extractor.git
+cd website-extractor
+
+# Install dependencies
+npm install
+
+# Start the server
+npm start
+```
+
+Open `http://localhost:3000` in your browser.
+
+> **Run in background (PowerShell):**
+> ```powershell
+> Start-Process -NoNewWindow node "server.js"
+> ```
+> Or use the `START` command:
+> ```cmd
+> start /B node server.js
+> ```
+
+> **Run on a custom port:**
+> ```powershell
+> $env:PORT=3005; node server.js
+> ```
+
 ---
 
 ## 🖥 Usage
