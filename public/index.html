@@ -200,6 +200,13 @@ const result = document.getElementById('result');
 const toast = document.getElementById('toast');
 const downloadBtn = document.getElementById('downloadBtn');
 
+// Verify all elements found
+const allFound = [input, btn, status, statusText, error, result, toast, downloadBtn].every(e => e !== null);
+console.log('All DOM elements found:', allFound);
+if (!allFound) {
+  document.body.innerHTML += '<div style="color:red;text-align:center;padding:20px">⚠️ Error loading page. Please hard refresh (Ctrl+F5).</div>';
+}
+
 let jobId = null;
 let resultUrl = '';
 
