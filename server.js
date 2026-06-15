@@ -5,15 +5,12 @@ import { join } from 'node:path';
 import { readFile, stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { extract, cleanup } from './lib/extractor.js';
+import { startExtraction, getJobStatus, getJobDir, cleanup } from './lib/extractor.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 const app = express();
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginResourcePolicy: false
-}));
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.use((req, res, next) => {
   console.log(new Date().toISOString(), req.method, req.url);
   res.header('Access-Control-Allow-Origin', '*');
@@ -25,24 +22,107 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(join(__dirname, 'public')));
 
-// GET /extract - processes extraction and returns HTML result page
+// GET /extract - start extraction, show processing page
 app.get('/extract', async (req, res) => {
   try {
     const url = req.query.url;
     if (!url || !/^https?:\/\/.+/.test(url)) {
-      return res.redirect('/?error=Please+enter+a+valid+URL+starting+with+http://+or+https://');
+      return res.redirect('/?error=Please+enter+a+valid+URL');
     }
-    const result = await extract(url);
-    const totalSize = result.files.reduce((s, f) => s + f.size, 0);
-    const sizeKB = (totalSize / 1024).toFixed(1);
-    const fileRows = result.files.map(f => `<div>📄 ${f.relPath}</div>`).join('\n');
-    
+    const jobId = await startExtraction(url);
+
     res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Extracted — ${result.title}</title>
+<title>Extracting — ${url}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh;display:flex;flex-direction:column}
+header{background:linear-gradient(135deg,#667eea,#764ba2);padding:40px 20px;text-align:center}
+header h1{color:#fff;font-size:1.8rem}
+header p{color:rgba(255,255,255,.8);margin-top:8px}
+main{flex:1;max-width:720px;margin:0 auto;padding:40px 20px;width:100%;text-align:center}
+.loading{margin-top:40px}
+.spinner{display:inline-block;width:48px;height:48px;border:4px solid #30363d;border-top-color:#764ba2;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#statusText{color:#8b949e;margin-top:16px;font-size:1.1rem}
+#dots{color:#484f58}
+.cmd{font-family:monospace;font-size:.8rem;color:#484f58;margin-top:12px;background:#0d1117;padding:10px 14px;border-radius:6px;display:inline-block;word-break:break-all}
+footer{text-align:center;padding:24px;color:#484f58;font-size:.85rem}
+footer a{color:#58a6ff;text-decoration:none}
+</style>
+</head>
+<body>
+<header>
+<h1>⏳ Extracting Website</h1>
+<p>${url}</p>
+</header>
+<main>
+<div class="loading">
+<div class="spinner"></div>
+<p id="statusText">Running wget<span id="dots">...</span></p>
+<div class="cmd">wget --mirror --convert-links --adjust-extension --page-requisites --no-parent ${url}</div>
+</div>
+</main>
+<footer>Built by <a href="https://github.com/royaldevlopments">Royal Devlopments</a></footer>
+<script>
+const jobId = '${jobId}';
+const dots = document.getElementById('dots');
+let dotCount = 0;
+setInterval(() => {
+  dotCount = (dotCount + 1) % 4;
+  dots.textContent = '.'.repeat(dotCount || 3);
+}, 400);
+
+async function check() {
+  try {
+    const r = await fetch('/api/status/' + jobId);
+    const s = await r.json();
+    if (s.status === 'complete') {
+      window.location.href = '/api/result/' + jobId + '?url=' + encodeURIComponent('${url}');
+    } else if (s.status === 'error') {
+      document.getElementById('statusText').innerHTML = '❌ Error: ' + s.error + '<br><a href="/" style="color:#58a6ff;margin-top:12px;display:inline-block">Try Again</a>';
+    } else {
+      setTimeout(check, 2000);
+    }
+  } catch(e) {
+    setTimeout(check, 2000);
+  }
+}
+setTimeout(check, 2000);
+</script>
+</body>
+</html>`);
+  } catch (e) {
+    res.status(400).send(`Error: ${e.message}`);
+  }
+});
+
+// GET /api/status/:jobId - check extraction status
+app.get('/api/status/:jobId', (req, res) => {
+  const status = getJobStatus(req.params.jobId);
+  if (!status) return res.status(404).json({ error: 'Job not found' });
+  res.json(status);
+});
+
+// GET /api/result/:jobId - show result page
+app.get('/api/result/:jobId', async (req, res) => {
+  const status = getJobStatus(req.params.jobId);
+  if (!status) return res.redirect('/?error=Job+expired');
+  if (status.status !== 'complete') return res.redirect('/extract?url=' + encodeURIComponent(req.query.url || status.url));
+
+  const url = req.query.url || status.url;
+  const sizeKB = (status.totalSize / 1024).toFixed(1);
+  const fileRows = status.files.map(f => `<div>📄 ${f}</div>`).join('\n');
+
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Extracted — ${status.title}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh;display:flex;flex-direction:column}
@@ -59,7 +139,7 @@ main{flex:1;max-width:720px;margin:0 auto;padding:40px 20px;width:100%}
 .stat .label{font-size:.85rem;color:#8b949e;margin-top:4px}
 .files{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 16px;max-height:200px;overflow-y:auto;margin-bottom:20px;font-size:.85rem;font-family:monospace}
 .files div{color:#8b949e;padding:2px 0}
-.btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:1rem}
+.btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:1rem;border:none;cursor:pointer}
 .btn:hover{opacity:.9}
 .btn-sec{background:#21262d;color:#c9d1d9;border:1px solid #30363d;margin-left:10px}
 footer{text-align:center;padding:24px;color:#484f58;font-size:.85rem}
@@ -70,43 +150,24 @@ footer a{color:#58a6ff;text-decoration:none}
 <body>
 <header>
 <h1>✅ Extracted Successfully</h1>
-<p>${result.title}</p>
+<p>${status.title}</p>
 </header>
 <main>
 <div class="card">
-<h2>${result.title}</h2>
+<h2>${status.title}</h2>
 <p class="sub">${url}</p>
 <div class="summary">
-<div class="stat"><div class="num">${result.files.length}</div><div class="label">Files</div></div>
+<div class="stat"><div class="num">${status.files.length}</div><div class="label">Files</div></div>
 <div class="stat"><div class="num">${sizeKB}KB</div><div class="label">Total Size</div></div>
 </div>
 <div class="files">${fileRows}</div>
-<a class="btn" href="/api/download/${result.jobId}?url=${encodeURIComponent(url)}">⬇ Download ZIP</a>
+<a class="btn" href="/api/download/${status.jobId}?url=${encodeURIComponent(url)}">⬇ Download ZIP</a>
 <a class="btn btn-sec" href="/">Extract Another</a>
 </div>
 </main>
 <footer>Built by <a href="https://github.com/royaldevlopments">Royal Devlopments</a></footer>
 </body>
 </html>`);
-  } catch (e) {
-    res.status(400).send(`<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><title>Error</title><style>
-body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0d1117;color:#c9d1d9;display:flex;align-items:center;justify-content:center;min-height:100vh}
-.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:40px;text-align:center;max-width:500px}
-h2{color:#f85149;margin-bottom:12px}
-p{color:#8b949e;margin-bottom:24px}
-.btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:1rem}
-</style></head>
-<body>
-<div class="card">
-<h2>❌ Error</h2>
-<p>${e.message}</p>
-<a class="btn" href="/">Try Again</a>
-</div>
-</body>
-</html>`);
-  }
 });
 
 // POST /api/extract - JSON API (kept for compatibility)
@@ -114,18 +175,29 @@ app.post('/api/extract', async (req, res) => {
   try {
     const { url } = req.body;
     if (!url || !/^https?:\/\/.+/.test(url)) {
-      return res.status(400).json({ error: 'Valid URL required (http:// or https://)' });
+      return res.status(400).json({ error: 'Valid URL required' });
     }
-    const result = await extract(url);
-    const totalSize = result.files.reduce((s, f) => s + f.size, 0);
-    const fileList = result.files.map(f => f.relPath);
+    const jobId = await startExtraction(url);
+    // Wait for completion (poll)
+    const result = await new Promise((resolve, reject) => {
+      const check = setInterval(() => {
+        const s = getJobStatus(jobId);
+        if (s.status === 'complete') {
+          clearInterval(check);
+          resolve(s);
+        } else if (s.status === 'error') {
+          clearInterval(check);
+          reject(new Error(s.error));
+        }
+      }, 500);
+    });
     res.json({
       title: result.title,
       url: result.url,
       jobId: result.jobId,
-      files: fileList,
-      totalFiles: result.files.length,
-      totalSize
+      files: result.files,
+      totalFiles: result.totalFiles,
+      totalSize: result.totalSize
     });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -135,11 +207,11 @@ app.post('/api/extract', async (req, res) => {
 app.get('/api/download/:jobId', async (req, res) => {
   const { jobId } = req.params;
   try {
-    const { extract } = await import('./lib/extractor.js');
-    const JOBS_DIR = join((await import('node:os')).tmpdir(), 'we-jobs');
-    const outDir = join(JOBS_DIR, jobId);
+    const outDir = getJobDir(jobId);
+    if (!outDir) return res.status(404).json({ error: 'Job not found' });
 
-    await stat(outDir);
+    const JOBS_DIR = join((await import('node:os')).tmpdir(), 'we-jobs');
+    const fullDir = join(JOBS_DIR, jobId);
 
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="website-${jobId.slice(0, 8)}.zip"`);
@@ -163,17 +235,17 @@ app.get('/api/download/:jobId', async (req, res) => {
       }
     }
 
-    const hostname = new URL(req.query.url || 'https://unknown').hostname;
-    const hostDir = join(outDir, hostname);
+    const status = getJobStatus(jobId);
+    const hostname = status ? status.hostname : (req.query.url ? new URL(req.query.url).hostname : 'unknown');
+    const hostDir = join(fullDir, hostname);
     try {
       await stat(hostDir);
       await addFiles(hostDir);
     } catch {
-      await addFiles(outDir);
+      await addFiles(fullDir);
     }
 
-    archive.append(`Website extracted from: ${req.query.url || 'Unknown'}\r\nGenerated by Website Extractor\r\n`, { name: 'README.txt' });
-
+    archive.append(`Website extracted from: ${req.query.url || status?.url || 'Unknown'}\r\nGenerated by Website Extractor\r\n`, { name: 'README.txt' });
     await archive.finalize();
     cleanup(jobId);
   } catch (e) {
