@@ -190,6 +190,7 @@ footer a { color: #58a6ff; text-decoration: none; }
   Built by <a href="https://github.com/royaldevlopments">Royal Devlopments</a>
 </footer>
 <script>
+console.log('Page loaded');
 const input = document.getElementById('urlInput');
 const btn = document.getElementById('extractBtn');
 const status = document.getElementById('status');
@@ -210,10 +211,11 @@ if (!allFound) {
 let jobId = null;
 let resultUrl = '';
 
-async function extract() {
+function extract() {
+  console.log('extract() called');
   const url = input.value.trim();
-  if (!url) { showToast('Please enter a URL'); return; }
-  if (!/^https?:\/\//.test(url)) { showToast('URL must start with http:// or https://'); return; }
+  if (!url) { alert('Please enter a URL'); return; }
+  if (!/^https?:\/\//.test(url)) { alert('URL must start with http:// or https://'); return; }
 
   btn.disabled = true;
   btn.textContent = 'Extracting... ⏳';
@@ -223,21 +225,14 @@ async function extract() {
   error.classList.remove('show');
   result.classList.remove('show');
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 130000);
-
-    const res = await fetch('/api/extract', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
+  fetch('/api/extract', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) throw new Error(data.error);
     jobId = data.jobId;
     resultUrl = url;
 
@@ -253,11 +248,6 @@ async function extract() {
       const div = document.createElement('div');
       const ext = f.split('.').pop()?.toLowerCase();
       div.textContent = '📄 ' + f;
-      if (f.endsWith('/')) div.className = 'dir';
-      else if (ext === 'html' || ext === 'htm') div.className = 'ext-html';
-      else if (ext === 'css') div.className = 'ext-css';
-      else if (ext === 'js') div.className = 'ext-js';
-      else if (['png','jpg','jpeg','gif','svg','webp','ico'].includes(ext)) div.className = 'ext-img';
       fileList.appendChild(div);
     }
 
@@ -265,21 +255,15 @@ async function extract() {
 
     status.classList.remove('show');
     result.classList.add('show');
-  } catch (e) {
+  })
+  .catch(e => {
     status.classList.remove('show');
-    showToast(e.name === 'AbortError' ? 'Request timed out (2 min). The website might be too large.' : e.message);
-  } finally {
+    alert('Error: ' + e.message);
+  })
+  .finally(() => {
     btn.disabled = false;
     btn.textContent = 'Extract 🔍';
-  }
-}
-
-function showToast(msg) {
-  error.textContent = msg;
-  error.classList.add('show');
-  toast.textContent = '❌ ' + msg;
-  toast.style.display = 'block';
-  setTimeout(() => toast.style.display = 'none', 8000);
+  });
 }
 
 function resetForm() {
