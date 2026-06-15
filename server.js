@@ -25,6 +25,10 @@ app.use(helmet({
 }));
 app.use((req, res, next) => {
   console.log(new Date().toISOString(), req.method, req.url);
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
 app.use(express.json({ limit: '50mb' }));
@@ -32,6 +36,7 @@ app.use(express.static(join(__dirname, 'public')));
 
 app.post('/api/extract', async (req, res) => {
   try {
+    console.log('POST /api/extract body:', JSON.stringify(req.body));
     const { url } = req.body;
     if (!url || !/^https?:\/\/.+/.test(url)) {
       return res.status(400).json({ error: 'Valid URL required (http:// or https://)' });
